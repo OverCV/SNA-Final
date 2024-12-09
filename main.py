@@ -54,7 +54,7 @@ if __name__ == '__main__':
     print(basic_metrics)
 
     # 5. Análisis Profundo de Métricas de Redes
-    deep_analyzer = DeepAnalyzer(builder.G)
+    deep_analyzer =  DeepAnalyzer(builder.G)
     deep_metrics = deep_analyzer.analyze()
     print('\nAnálisis Profundo:')
     print(deep_metrics)
