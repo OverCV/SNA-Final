@@ -106,15 +106,6 @@ def create_initial_dataset(fb_path, ts_path, output_path):
     return combined_data
 
 
-def load_or_create_dataset(fb_path, ts_path, output_path):
-    if os.path.exists(output_path):
-        print(f'Cargando dataset existente desde {output_path}')
-        return pd.read_csv(output_path, low_memory=False)
-    else:
-        print(f'Creando nuevo dataset en {output_path}')
-        return create_initial_dataset(fb_path, ts_path, output_path)
-
-
 def print_dataset_summary(dataset):
     print('Resumen del dataset:')
     print(f'Total de registros: {len(dataset)}')
@@ -126,41 +117,115 @@ def print_dataset_summary(dataset):
     print(dataset['Estructura'].value_counts())
 
 
+def save_graph(G, filepath):
+    """
+    Guarda el grafo en formato pickle para uso posterior.
 
-
-def save_graph(G, path='graph.pkl'):
-    with open(path, 'wb') as f:
+    Args:
+        G: Grafo de NetworkX a guardar
+        filepath: Ruta donde guardar el archivo
+    """
+    with open(filepath, 'wb') as f:
         pickle.dump(G, f)
+    print(f'Grafo guardado en {filepath}')
 
 
-def load_graph(path='graph.pkl'):
-    with open(path, 'rb') as f:
+def load_graph(filepath):
+    """
+    Carga un grafo previamente guardado.
+
+    Args:
+        filepath: Ruta del archivo pickle que contiene el grafo
+
+    Returns:
+        NetworkX graph objeto
+    """
+    with open(filepath, 'wb') as f:
         return pickle.load(f)
 
 
+def load_or_create_dataset(fb_path, ts_path, output_path, use_sample=False, sample_fraction=1.0):
+    """
+    Carga el dataset existente o crea uno nuevo, con opción de muestreo.
+
+    Args:
+        fb_path: Ruta a la base de datos de Facebook
+        ts_path: Ruta a los archivos de Truth Social
+        output_path: Ruta donde guardar/cargar el dataset
+        use_sample: Si se debe usar solo una fracción del dataset
+        sample_fraction: Fracción del dataset a usar (entre 0 y 1)
+
+    Returns:
+        DataFrame con el dataset completo o una muestra
+    """
+    if os.path.exists(output_path):
+        print(f'Cargando dataset existente desde {output_path}')
+        dataset = pd.read_csv(output_path, low_memory=False)
+    else:
+        print(f'Creando nuevo dataset en {output_path}')
+        dataset = create_initial_dataset(fb_path, ts_path, output_path)
+
+    if use_sample:
+        # Mantener todos los usuarios pero muestrear las capturas
+        usuarios = dataset[dataset['Tipo_de_Nodo'] == 'Usuario']
+        capturas = dataset[dataset['Tipo_de_Nodo'] == 'Captura']
+
+        # Muestrear capturas manteniendo la proporción por plataforma
+        capturas_sample = (
+            capturas.groupby('Plataforma')
+            .apply(lambda x: x.sample(frac=sample_fraction, random_state=42))
+            .reset_index(drop=True)
+        )
+
+        # Combinar usuarios con la muestra de capturas
+        dataset = pd.concat([usuarios, capturas_sample], ignore_index=True)
+        print(f'Dataset reducido al {sample_fraction*100}% de las capturas originales')
+
+    return dataset
+
+
 if __name__ == '__main__':
+    # Definir rutas y configuración
     FB_PATH = 'data/facebook.sqlite'
     TS_PATH = 'data/ts'
     DATASET_PATH = 'dataset_inicial.csv'
+    GRAPH_CACHE_PATH = 'graph.pkl'
 
-    dataset = load_or_create_dataset(FB_PATH, TS_PATH, DATASET_PATH)
+    # Configuración de muestreo
+    USE_SAMPLE = True  # Activar o desactivar muestreo
+    SAMPLE_FRACTION = 0.1  # Usar 10% del dataset
+
+    # Cargar o crear dataset con muestreo
+    dataset = load_or_create_dataset(
+        FB_PATH, TS_PATH, DATASET_PATH, use_sample=USE_SAMPLE, sample_fraction=SAMPLE_FRACTION
+    )
+
+    # Imprimir resumen del dataset
     print_dataset_summary(dataset)
 
     # Construir o cargar el grafo desde caché
-    if os.path.exists('graph.pkl'):
+    if os.path.exists(GRAPH_CACHE_PATH):
         print('Cargando grafo desde cache...')
-        G = load_graph('graph.pkl')
+        G = load_graph(GRAPH_CACHE_PATH)
     else:
         print('Construyendo el grafo...')
         builder = SocialNetworkBuilder(dataset, ts_base_path=TS_PATH, fb_db_path=FB_PATH)
         G = builder.build_network()
-        save_graph(G, 'graph.pkl')
+        save_graph(G, GRAPH_CACHE_PATH)
 
+    # Mostrar estadísticas de la red
     stats = {
         'num_nodes': G.number_of_nodes(),
         'num_edges': G.number_of_edges(),
         'density': nx.density(G),
+        'num_users': len(
+            [n for n in G.nodes if G.nodes[n].get('tipo') == 'Usuario'],
+        ),
+        'num_capturas': len(
+            [n for n in G.nodes if G.nodes[n].get('tipo') == 'Captura'],
+        ),
     }
+
     print('\nEstadísticas de la Red:')
     for key, value in stats.items():
         print(f'{key}: {value}')
