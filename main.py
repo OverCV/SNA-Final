@@ -16,7 +16,7 @@ if __name__ == '__main__':
     USE_SAMPLE = True
     SAMPLE_FRACTION = 0.05  # Valor entre 0 y 1 #
 
-    # 1. Revisión del Artículo y el Dataset
+    # 1. Revisión del Artículo y el Dataset.
     creator = DatasetCreator(FB_PATH, TS_PATH, DATASET_PATH)
     dataset = creator.load_or_create_dataset(
         use_sample=USE_SAMPLE,
