@@ -1,3 +1,4 @@
+# core\deep_analyzer.py
 class DeepAnalyzer:
     """
     Análisis de Métricas de Redes Avanzadas:

@@ -1,3 +1,4 @@
+# main.py
 import os
 from core.dataset_creator import DatasetCreator
 from core.network_builder import NetworkBuilder
@@ -13,11 +14,14 @@ if __name__ == '__main__':
     GRAPH_CACHE_PATH = 'graph.pkl'
 
     USE_SAMPLE = True
-    SAMPLE_FRACTION = 0.1
+    SAMPLE_FRACTION = 0.1  # Valor entre 0 y 1 #
 
     # 1. Revisión del Artículo y el Dataset
     creator = DatasetCreator(FB_PATH, TS_PATH, DATASET_PATH)
-    dataset = creator.load_or_create_dataset(use_sample=USE_SAMPLE, sample_fraction=SAMPLE_FRACTION)
+    dataset = creator.load_or_create_dataset(
+        use_sample=USE_SAMPLE,
+        sample_fraction=SAMPLE_FRACTION,
+    )
     creator.print_dataset_summary(dataset)
 
     # Validar dataset

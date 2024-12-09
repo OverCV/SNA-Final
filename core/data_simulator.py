@@ -1,3 +1,4 @@
+# core\data_simulator.py
 class DataSimulator:
     """
     Clase para la fase 3: Dataset de Capturas Simuladas.
