@@ -15,11 +15,10 @@ class DatasetValidator:
         ]
 
     def validate_schema(self):
-        """Verifica que el dataset tenga las columnas correctas"""
+        print('\n=== Validación de Esquema ===')
         missing_cols = set(self.columns) - set(self.dataset.columns)
         extra_cols = set(self.dataset.columns) - set(self.columns)
 
-        print('\n=== Validación de Esquema ===')
         if not missing_cols and not extra_cols:
             print('✓ El esquema es correcto')
         if missing_cols:
@@ -72,6 +71,24 @@ class DatasetValidator:
 
         print('\nDistribución de estructuras por plataforma (%):')
         print(platform_struct_dist)
+
+    def validate_temporal_consistency(self, dataset):
+        print('\n=== Validación Temporal ===')
+        temporal_issues = []
+        for _, row in dataset.iterrows():
+            if row['Tipo_de_Nodo'] == 'Captura':
+                if pd.isna(row['Fecha']):
+                    # Podríamos considerarlo un issue si no hay fecha
+                    pass
+                else:
+                    # Checar fechas futuras o muy antiguas
+                    if row['Fecha'] > pd.Timestamp.now():
+                        temporal_issues.append(f"Fecha futura en captura {row['Nodo']}")
+                    if row['Fecha'].year < 1970:  # Por ejemplo, filtrar fechas imposibles
+                        temporal_issues.append(f"Fecha muy antigua en captura {row['Nodo']}")
+        if not temporal_issues:
+            print('No se encontraron problemas temporales graves.')
+        return temporal_issues
 
     def analyze_temporal_distribution(self):
         """Analiza la distribución temporal de los datos"""
