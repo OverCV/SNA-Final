@@ -4,7 +4,6 @@ import sqlite3
 from networkx.algorithms.community import louvain_partitions, louvain_communities
 
 
-
 class SocialNetworkBuilder:
     def __init__(self, dataset, ts_base_path=None, fb_db_path=None):
         self.dataset = dataset
@@ -13,6 +12,40 @@ class SocialNetworkBuilder:
         self.fb_db_path = fb_db_path
         self._cache_usernames = {}
         self._prepare_user_mapping()
+
+    def _detect_communities(self):
+        """
+        Detecta comunidades utilizando el algoritmo Louvain.
+        Devuelve las comunidades en múltiples niveles.
+        """
+        undirected = self.G.to_undirected()
+        if nx.is_empty(undirected):
+            print('⚠ La red está vacía, no se pueden detectar comunidades.')
+            return []
+
+        # Detectar las particiones usando louvain_partitions
+        partitions = list(louvain_partitions(undirected))
+        return partitions
+
+    def analyze_communities(self):
+        """
+        Analiza las comunidades detectadas en la red.
+        """
+        partitions = self._detect_communities()
+        if not partitions:
+            print('No se encontraron comunidades.')
+            return {}
+
+        community_summary = {
+            'total_levels': len(partitions),
+            'final_partition': partitions[-1],  # Último nivel (menor granularidad)
+            'num_communities': len(partitions[-1]),  # Número de comunidades finales
+        }
+
+        print(f'Comunidades detectadas en {len(partitions)} niveles.')
+        print(f'Último nivel tiene {len(partitions[-1])} comunidades.')
+
+        return community_summary
 
     def _prepare_user_mapping(self):
         # Construir un mapping (opcional) si tuvieras IDs numéricos y usernames
@@ -247,57 +280,56 @@ class SocialNetworkBuilder:
     def _detect_communities(self):
         """
         Detecta comunidades usando el algoritmo de Louvain
+        Convertir a grafo no dirigido para detección de comunidades
         """
-        # Convertir a grafo no dirigido para detección de comunidades
         undirected_graph = self.G.to_undirected()
-        
+
         try:
             # Detectar comunidades usando el método de Louvain
             communities = louvain_communities(undirected_graph)
-            
+
             # Crear un diccionario que mapee nodos a sus comunidades
             community_mapping = {}
             for i, comm in enumerate(communities):
                 for node in comm:
                     community_mapping[node] = i
-                    
+
             return community_mapping
-            
+
         except Exception as e:
-            print(f"Error al detectar comunidades: {e}")
+            print(f'Error al detectar comunidades: {e}')
             return {}
-            
+
     def analyze_diffusion_patterns(self):
         """
         Analiza patrones de difusión entre plataformas
         """
         patterns = {}
-        
+
         # Analizar por plataforma
         for platform in ['Facebook', 'Truth Social']:
             # Filtrar nodos de la plataforma
             platform_nodes = [
-                n for n in self.G.nodes 
-                if self.G.nodes[n].get('plataforma') == platform
+                n for n in self.G.nodes if self.G.nodes[n].get('plataforma') == platform
             ]
-            
+
             if not platform_nodes:
                 continue
-                
+
             # Crear subgrafo de la plataforma
             subgraph = self.G.subgraph(platform_nodes)
-            
+
             # Calcular métricas de difusión
             patterns[platform] = {
                 'num_nodes': len(subgraph),
                 'num_edges': subgraph.number_of_edges(),
                 'density': nx.density(subgraph),
                 'avg_clustering': nx.average_clustering(subgraph.to_undirected()),
-                'top_influencers': self._get_top_influencers(subgraph, n=5)
+                'top_influencers': self._get_top_influencers(subgraph, n=5),
             }
-            
+
         return patterns
-        
+
     def _get_top_influencers(self, graph, n=5):
         """
         Identifica los n usuarios más influyentes basado en centralidad

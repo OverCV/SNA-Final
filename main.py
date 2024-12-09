@@ -4,6 +4,7 @@ import sqlite3
 import networkx as nx
 from validator import DatasetValidator
 from snbuilder import SocialNetworkBuilder
+import pickle
 
 
 def convert_tf_to_bool(value):
@@ -125,44 +126,41 @@ def print_dataset_summary(dataset):
     print(dataset['Estructura'].value_counts())
 
 
+
+
+def save_graph(G, path='graph.pkl'):
+    with open(path, 'wb') as f:
+        pickle.dump(G, f)
+
+
+def load_graph(path='graph.pkl'):
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
+
 if __name__ == '__main__':
-    # Definir rutas
     FB_PATH = 'data/facebook.sqlite'
     TS_PATH = 'data/ts'
     DATASET_PATH = 'dataset_inicial.csv'
 
-    # Cargar o crear dataset
     dataset = load_or_create_dataset(FB_PATH, TS_PATH, DATASET_PATH)
-
-    # Imprimir resumen
     print_dataset_summary(dataset)
 
-    # Validar el dataset
-    # validator = DatasetValidator(dataset)
-    # validator.validate_schema()
-    # temporal_issues = validator.validate_temporal_consistency(dataset)
-    # if temporal_issues:
-    #     print('Problemas temporales detectados:')
-    #     for issue in temporal_issues:
-    #         print(issue)
+    # Construir o cargar el grafo desde caché
+    if os.path.exists('graph.pkl'):
+        print('Cargando grafo desde cache...')
+        G = load_graph('graph.pkl')
+    else:
+        print('Construyendo el grafo...')
+        builder = SocialNetworkBuilder(dataset, ts_base_path=TS_PATH, fb_db_path=FB_PATH)
+        G = builder.build_network()
+        save_graph(G, 'graph.pkl')
 
-    # Construir red
-    builder = SocialNetworkBuilder(dataset, ts_base_path=TS_PATH, fb_db_path=FB_PATH)
-    G = builder.build_network()
-
-    # Mostrar estadísticas de la red
-    stats = builder.get_network_stats()
+    stats = {
+        'num_nodes': G.number_of_nodes(),
+        'num_edges': G.number_of_edges(),
+        'density': nx.density(G),
+    }
     print('\nEstadísticas de la Red:')
     for key, value in stats.items():
         print(f'{key}: {value}')
-
-    # Realizar análisis más profundo de la red
-    network_analysis = builder.analyze_network()
-    print('\nAnálisis de la red:')
-    print('Métricas de Centralidad:', network_analysis['centralidad'].keys())
-    print(
-        'Comunidades detectadas (ejemplo de partición):',
-        len(set(network_analysis['comunidades'].values())),
-        'comunidades',
-    )
-    print('Patrones de difusión:', network_analysis['patrones_difusion'].keys())
