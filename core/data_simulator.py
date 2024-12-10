@@ -209,7 +209,7 @@ class DataSimulator:
                 word_length = np.random.randint(3, 10)
                 word = ''.join(random.choice(string.ascii_lowercase) for _ in range(word_length))
                 words.append(word)
-            return ' '.join(words)ñ
+            return ' '.join(words)
 
         def assign_content(row):
             struct = row['Estructura']
