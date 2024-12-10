@@ -1,5 +1,6 @@
-# core\validator.py
+# core/validator.py
 import pandas as pd
+import numpy as np
 
 
 class DatasetValidator:
@@ -31,7 +32,6 @@ class DatasetValidator:
         """Analiza valores nulos por columna y plataforma"""
         print('\n=== Análisis de Valores Nulos ===')
 
-        # Nulos por columna
         null_counts = self.dataset.isna().sum()
         null_percentages = (null_counts / len(self.dataset)) * 100
 
@@ -73,29 +73,33 @@ class DatasetValidator:
         print('\nDistribución de estructuras por plataforma (%):')
         print(platform_struct_dist)
 
-    def validate_temporal_consistency(self, dataset):
+    def validate_temporal_consistency(self):
         print('\n=== Validación Temporal ===')
         temporal_issues = []
-        for _, row in dataset.iterrows():
+        # Asegurar conversión a datetime
+        self.dataset['Fecha'] = pd.to_datetime(self.dataset['Fecha'], errors='coerce')
+        for _, row in self.dataset.iterrows():
             if row['Tipo_de_Nodo'] == 'Captura':
                 if pd.isna(row['Fecha']):
-                    # Podríamos considerarlo un issue si no hay fecha
-                    pass
+                    temporal_issues.append(f"Captura {row['Nodo']} sin fecha")
                 else:
-                    # Checar fechas futuras o muy antiguas
-                    if row['Fecha'] > pd.Timestamp.now():
-                        temporal_issues.append(f"Fecha futura en captura {row['Nodo']}")
-                    if row['Fecha'].year < 1970:  # Por ejemplo, filtrar fechas imposibles
+                    # Checar fechas muy futuristas o muy antiguas (ejemplo)
+                    if row['Fecha'] > pd.Timestamp.now() + pd.Timedelta(days=30):
+                        temporal_issues.append(f"Fecha futura no realista en captura {row['Nodo']}")
+                    if row['Fecha'].year < 1970:
                         temporal_issues.append(f"Fecha muy antigua en captura {row['Nodo']}")
         if not temporal_issues:
             print('No se encontraron problemas temporales graves.')
+        else:
+            print('⚠ Problemas temporales detectados:')
+            for issue in temporal_issues:
+                print(' - ' + issue)
         return temporal_issues
 
     def analyze_temporal_distribution(self):
         """Analiza la distribución temporal de los datos"""
         print('\n=== Análisis Temporal ===')
 
-        # Convertimos a datetime si no lo está ya
         date_data = pd.to_datetime(self.dataset['Fecha'], errors='coerce')
         valid_dates = date_data.dropna()
 
@@ -114,6 +118,8 @@ class DatasetValidator:
                     print(f'  Desde: {platform_dates.min()}')
                     print(f'  Hasta: {platform_dates.max()}')
                     print(f'  Rango: {(platform_dates.max() - platform_dates.min()).days} días')
+                else:
+                    print(f'\n{platform}: No hay fechas válidas')
         else:
             print('⚠ No se encontraron fechas válidas en el dataset')
 
@@ -121,21 +127,84 @@ class DatasetValidator:
         """Analiza la longitud del contenido por plataforma"""
         print('\n=== Análisis de Longitud de Contenido ===')
 
-        # Calculamos longitudes solo para registros tipo 'Captura'
-        captures = self.dataset[self.dataset['Tipo_de_Nodo'] == 'Captura']
+        captures = self.dataset[self.dataset['Tipo_de_Nodo'] == 'Captura'].copy()
         captures['content_length'] = captures['Contenido'].fillna('').astype(str).apply(len)
 
-        print('\nEstadísticas de longitud por plataforma:')
-        stats = captures.groupby('Plataforma')['content_length'].describe()
-        print(stats)
+        if len(captures) > 0:
+            stats = captures.groupby('Plataforma')['content_length'].describe()
+            print('\nEstadísticas de longitud por plataforma:')
+            print(stats)
+        else:
+            print('No hay capturas para analizar la longitud de contenido.')
+
+    def check_value_domains(self):
+        """Verifica que valores categóricos estén dentro de los dominios esperados"""
+        print('\n=== Validación de Dominios de Valores ===')
+
+        # Validar Tipo_de_Nodo
+        expected_types = ['Usuario', 'Captura']
+        invalid_types = self.dataset[~self.dataset['Tipo_de_Nodo'].isin(expected_types)]
+        if len(invalid_types) > 0:
+            print('⚠ Se encontraron tipos de nodo no válidos:')
+            print(invalid_types['Tipo_de_Nodo'].unique())
+        else:
+            print('✓ Todos los nodos tienen tipos válidos.')
+
+        # Validar Plataforma
+        # Asumiendo que las plataformas posibles son: Twitter, Facebook, Instagram, Truth Social
+        expected_platforms = ['Twitter', 'Facebook', 'Instagram', 'Truth Social']
+        invalid_platforms = self.dataset[~self.dataset['Plataforma'].isin(expected_platforms)]
+        if len(invalid_platforms) > 0:
+            print('⚠ Se encontraron plataformas no válidas:')
+            print(invalid_platforms['Plataforma'].unique())
+        else:
+            print('✓ Todas las plataformas son válidas.')
+
+        # Validar Estructura en Capturas
+        # Estructuras esperadas: Status, Reply, Co-Tweet, Cropped Snapshot
+        captures = self.dataset[self.dataset['Tipo_de_Nodo'] == 'Captura']
+        expected_structures = ['Status', 'Reply', 'Co-Tweet', 'Cropped Snapshot']
+        invalid_struct = captures[~captures['Estructura'].isin(expected_structures)]
+        if len(invalid_struct) > 0:
+            print('⚠ Se encontraron estructuras no válidas en capturas:')
+            print(invalid_struct['Estructura'].unique())
+        else:
+            print('✓ Todas las capturas tienen estructuras válidas.')
+
+        # Validar que Autor no sea nulo
+        if self.dataset['Autor'].isna().any():
+            print('⚠ Hay nodos sin Autor asignado.')
+        else:
+            print('✓ Todos los nodos tienen Autor.')
+
+        # Validar que Contenido no sea nulo en capturas
+        if captures['Contenido'].isna().any():
+            print('⚠ Hay capturas sin contenido.')
+        else:
+            print('✓ Todas las capturas tienen contenido.')
 
     def run_all_validations(self):
         """Ejecuta todas las validaciones"""
         print('🔍 Iniciando validación completa del dataset...')
         print(f'Total de registros: {len(self.dataset)}')
 
+        # Paso 1: Validar Esquema
         self.validate_schema()
+
+        # Paso 2: Análisis de Nulos
         self.check_null_values()
+
+        # Paso 3: Análisis de Distribución (Nodos, Estructuras)
         self.analyze_content_distribution()
+
+        # Paso 4: Validación y Análisis Temporal
+        self.validate_temporal_consistency()
         self.analyze_temporal_distribution()
+
+        # Paso 5: Análisis de Longitud de Contenido
         self.analyze_content_length()
+
+        # Paso 6: Validar Dominios de Valores (Plataformas, Estructuras, etc.)
+        self.check_value_domains()
+
+        print('\n✅ Validaciones Completadas.')

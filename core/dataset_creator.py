@@ -2,6 +2,7 @@
 import os
 import pandas as pd
 import sqlite3
+import glob
 
 
 def convert_tf_to_bool(value):
@@ -9,9 +10,10 @@ def convert_tf_to_bool(value):
 
 
 class DatasetCreator:
-    def __init__(self, fb_path, ts_path, output_path):
+    def __init__(self, fb_path, ts_path, twitter_path, output_path):
         self.fb_path = fb_path
         self.ts_path = ts_path
+        self.twitter_path = twitter_path
         self.output_path = output_path
 
     def process_facebook_data(self):
@@ -98,15 +100,6 @@ class DatasetCreator:
 
         return pd.concat([ts_users, ts_posts], ignore_index=True)
 
-    def create_initial_dataset(self):
-        facebook_data = self.process_facebook_data()
-        ts_data = self.process_truth_social_data()
-
-        combined_data = pd.concat([facebook_data, ts_data], ignore_index=True)
-        combined_data['Fecha'] = pd.to_datetime(combined_data['Fecha'], errors='coerce')
-        combined_data.to_csv(self.output_path, index=False)
-        return combined_data
-
     def load_or_create_dataset(self, use_sample=False, sample_fraction=1.0):
         if os.path.exists(self.output_path):
             print(f'Cargando dataset existente desde {self.output_path}')
@@ -127,6 +120,171 @@ class DatasetCreator:
             print(f'Dataset reducido al {sample_fraction*100}% de las capturas originales')
 
         return dataset
+
+    def process_twitter_data(self):
+        """
+        Process Twitter data from the RepLab 2013 dataset format into our standardized structure.
+        Handles encoding issues and timestamp conversion properly.
+        """
+        # Initialize collections for tweets and users
+        all_tweets = []
+        all_users = set()
+
+        # Process tweet information from all relevant directories
+        for data_dir in ['training/tweet_info', 'test/tweet_info', 'background/tweet_info']:
+            dir_path = os.path.join(self.twitter_path, data_dir)
+            if not os.path.exists(dir_path):
+                continue
+
+            # Process each .dat file in the directory
+            for dat_file in glob.glob(os.path.join(dir_path, '*.dat')):
+                try:
+                    # Read the file with error handling for encoding issues
+                    tweets_df = pd.read_csv(
+                        dat_file,
+                        sep='\t',
+                        quoting=3,
+                        encoding='utf-8',
+                        on_bad_lines='skip',  # Skip problematic lines instead of failing
+                        names=[
+                            'tweet_id',
+                            'author',
+                            'entity_id',
+                            'tweet_url',
+                            'language',
+                            'timestamp',
+                            'urls',
+                            'extended_urls',
+                            'md5_extended_urls',
+                            'is_near_duplicate_of',
+                        ],
+                        dtype={
+                            'tweet_id': str,
+                            'author': str,
+                            'entity_id': str,
+                            'tweet_url': str,
+                            'language': str,
+                            'timestamp': str,  # Read as string first
+                            'urls': str,
+                            'extended_urls': str,
+                            'md5_extended_urls': str,
+                            'is_near_duplicate_of': str,
+                        },
+                    )
+
+                    # Convert timestamp after reading
+                    # First, skip the header row by checking if timestamp is actually "timestamp"
+                    tweets_df = tweets_df[tweets_df['timestamp'] != 'timestamp']
+                    # Convert timestamp to numeric, handling errors
+                    tweets_df['timestamp'] = pd.to_numeric(tweets_df['timestamp'], errors='coerce')
+
+                    # Add tweets to our collection
+                    for _, tweet in tweets_df.iterrows():
+                        try:
+                            # Convert timestamp to datetime only if it's a valid number
+                            timestamp = (
+                                pd.to_datetime(tweet.timestamp, unit='s')
+                                if pd.notna(tweet.timestamp)
+                                else None
+                            )
+
+                            all_tweets.append(
+                                {
+                                    'Nodo': f'captw{tweet.tweet_id}',
+                                    'Tipo_de_Nodo': 'Captura',
+                                    'Plataforma': 'Twitter',
+                                    'Estructura': self.determine_tweet_structure(tweet),
+                                    'Autor': tweet.author,
+                                    'Fecha': timestamp,
+                                    'Contenido': None,  # Twitter content needs to be retrieved separately
+                                }
+                            )
+
+                            # Add user to our collection
+                            if pd.notna(tweet.author):
+                                all_users.add(tweet.author)
+
+                        except Exception as e:
+                            print(f'Error processing tweet {tweet.tweet_id}: {str(e)}')
+                            continue
+
+                except Exception as e:
+                    print(f'Error processing {dat_file}: {str(e)}')
+                    continue
+
+        # Create users DataFrame
+        users_df = pd.DataFrame(
+            [
+                {
+                    'Nodo': f'@{username}',
+                    'Tipo_de_Nodo': 'Usuario',
+                    'Plataforma': 'Twitter',
+                    'Estructura': 'N/A',
+                    'Autor': username,
+                    'Fecha': None,
+                    'Contenido': None,
+                }
+                for username in all_users
+            ]
+        )
+
+        # Create tweets DataFrame
+        tweets_df = pd.DataFrame(all_tweets)
+
+        # Combine and return
+        return pd.concat([users_df, tweets_df], ignore_index=True)
+
+    def determine_tweet_structure(self, tweet):
+        """
+        Determine the structure of a tweet based on available metadata.
+        For now returns 'Status' as default, but could be enhanced with reply detection.
+        """
+        return 'Status'
+
+    def _determine_tweet_structure(self, tweet):
+        """
+        Determine the structure of a tweet based on available metadata.
+        This is a simplified version - could be enhanced with more complex logic
+        if additional metadata is available.
+        """
+        # For now, we'll just mark everything as 'Status' since we don't have reply/thread info
+        # This could be enhanced later with more sophisticated logic
+        return 'Status'
+
+    def create_initial_dataset(self):
+        """
+        Create the initial dataset combining all three social media sources.
+        """
+        facebook_data = self.process_facebook_data()
+        ts_data = self.process_truth_social_data()
+        twitter_data = self.process_twitter_data()
+
+        combined_data = pd.concat([facebook_data, ts_data, twitter_data], ignore_index=True)
+        combined_data['Fecha'] = pd.to_datetime(combined_data['Fecha'], errors='coerce')
+        combined_data.to_csv(self.output_path, index=False)
+        return combined_data
+
+    # def create_initial_dataset(self):
+    #     """
+    #     Create the initial dataset combining all three social media sources.
+    #     """
+    #     facebook_data = self.process_facebook_data()
+    #     ts_data = self.process_truth_social_data()
+    #     twitter_data = self.process_twitter_data()
+
+    #     combined_data = pd.concat([facebook_data, ts_data, twitter_data], ignore_index=True)
+    #     combined_data['Fecha'] = pd.to_datetime(combined_data['Fecha'], errors='coerce')
+    #     combined_data.to_csv(self.output_path, index=False)
+    #     return combined_data
+
+    # def create_initial_dataset(self):
+    #     facebook_data = self.process_facebook_data()
+    #     ts_data = self.process_truth_social_data()
+
+    #     combined_data = pd.concat([facebook_data, ts_data], ignore_index=True)
+    #     combined_data['Fecha'] = pd.to_datetime(combined_data['Fecha'], errors='coerce')
+    #     combined_data.to_csv(self.output_path, index=False)
+    #     return combined_data
 
     @staticmethod
     def print_dataset_summary(dataset):
