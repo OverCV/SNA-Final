@@ -45,7 +45,7 @@ if __name__ == '__main__':
         print(f'{key}: {value}')
 
     # Graficar directamente el subgrafo reducido
-    plot_network(builder.G, fraction=0.005)
+    plot_network(builder.G)
 
 
  

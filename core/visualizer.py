@@ -73,11 +73,11 @@ def plot_network(G, fraction=0.005):
 
     # Crear la tabla en la figura
     table = plt.table(
-    cellText=table_data,               # Datos de la tabla
-    colLabels=["Descripción", "Valor"], # Títulos de las columnas
-    loc='lower center',                # Ubicación de la tabla
-    cellLoc='center',                  # Alineación del texto en las celdas
-    colColours=["#d3d3d3", "#d3d3d3"],  # Color gris claro para los encabezados de columna
+    cellText=table_data,               
+    colLabels=["Descripción", "Valor"], 
+    loc='lower center',              
+    cellLoc='center',                 
+    colColours=["#d3d3d3", "#d3d3d3"],  
     )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
