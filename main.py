@@ -6,6 +6,7 @@ from core.data_simulator import DataSimulator
 from core.basic_analyzer import BasicAnalyzer
 from core.deep_analyzer import DeepAnalyzer
 from core.validator import DatasetValidator
+from core.visualizer import plot_network
 
 if __name__ == '__main__':
     FB_PATH = 'data/facebook.sqlite'
@@ -42,6 +43,12 @@ if __name__ == '__main__':
     print('\nEstadísticas de la Red:')
     for key, value in stats.items():
         print(f'{key}: {value}')
+
+    # Graficar directamente el subgrafo reducido
+    plot_network(builder.G, fraction=0.005)
+
+
+ 
 
     # 3. Dataset de Capturas Simuladas (ejemplo)
     simulator = DataSimulator()
