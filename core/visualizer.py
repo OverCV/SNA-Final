@@ -33,7 +33,7 @@ def plot_network(G, fraction=0.005):
     # Ajustar el tamaño de los nodos según la centralidad
     node_sizes = [10000 * centrality.get(node, 0) for node in sampled_subgraph.nodes]  # Aumento de tamaño para nodos con más centralidad
 
-    # Configuración de colores según el atributo 'tipo'
+    
     node_colors = [
         'red' if sampled_subgraph.nodes[n].get('tipo') == 'Usuario' else 'green'
         for n in sampled_subgraph.nodes

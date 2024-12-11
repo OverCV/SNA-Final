@@ -15,7 +15,7 @@ if __name__ == '__main__':
     GRAPH_CACHE_PATH = 'graph.pkl'
 
     USE_SAMPLE = True
-    SAMPLE_FRACTION = 0.05  # Valor entre 0 y 1 #
+    SAMPLE_FRACTION = 0.005  # Valor entre 0 y 1 #
 
     # 1. Revisión del Artículo y el Dataset
     creator = DatasetCreator(FB_PATH, TS_PATH, DATASET_PATH)
