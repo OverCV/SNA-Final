@@ -6,6 +6,7 @@ from core.data_simulator import DataSimulator
 from core.basic_analyzer import BasicAnalyzer
 from core.deep_analyzer import DeepAnalyzer
 from core.validator import DatasetValidator
+from core.visualizer import plot_network
 
 if __name__ == '__main__':
     FB_PATH = 'data/facebook.sqlite'
@@ -16,7 +17,7 @@ if __name__ == '__main__':
     GRAPH_CACHE_PATH = 'graph.pkl'
 
     USE_SAMPLE = True
-    SAMPLE_FRACTION = 0.05  # Valor entre 0 y 1 #
+    SAMPLE_FRACTION = 0.005  # Valor entre 0 y 1 #
 
     # 1. Revisión del Artículo y el Dataset.
 
@@ -35,8 +36,6 @@ if __name__ == '__main__':
     validator = DatasetValidator(dataset)
     validator.run_all_validations()
 
-    SystemExit()
-
     # 4. Construcción de la Red
     builder = NetworkBuilder(dataset, ts_base_path=TS_PATH, fb_db_path=FB_PATH)
     if os.path.exists(GRAPH_CACHE_PATH):
@@ -51,6 +50,9 @@ if __name__ == '__main__':
     print('\nEstadísticas de la Red:')
     for key, value in stats.items():
         print(f'{key}: {value}')
+
+    # Graficar directamente el subgrafo reducido
+    plot_network(builder.G)
 
     # 5. Análisis Básico de Métricas de Red
     analyzer = BasicAnalyzer(builder.G)
