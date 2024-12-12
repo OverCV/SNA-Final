@@ -1,0 +1,69 @@
+@startuml
+
+class DatasetCreator {
+    - fb_path: str
+    - ts_path: str
+    - twitter_path: str
+    - output_path: str
+    + process_facebook_data(): DataFrame
+    + process_truth_social_data(): DataFrame
+    + process_twitter_data(): DataFrame
+    + load_or_create_dataset(use_sample: bool, sample_fraction: float): DataFrame
+    + create_initial_dataset(): DataFrame
+    + print_dataset_summary(dataset: DataFrame): void
+}
+
+class DataSimulator {
+    + simulate_data(dataset: DataFrame): DataFrame
+    + _normalize_invalid_structures(df: DataFrame): DataFrame
+    + _simulate_authors(df: DataFrame): DataFrame
+    + _simulate_structure(df: DataFrame): DataFrame
+    + _simulate_dates(df: DataFrame): DataFrame
+    + _simulate_content(df: DataFrame): DataFrame
+    + _final_check(df: DataFrame): DataFrame
+}
+
+class DatasetValidator {
+    - dataset: DataFrame
+    + run_all_validations(): void
+}
+
+class NetworkBuilder {
+    - dataset: DataFrame
+    - ts_base_path: str
+    - fb_db_path: str
+    + add_nodes(): void
+    + add_edges(): void
+    + add_truth_social_relationships(): void
+    + add_facebook_relationships(): void
+    + build_network(): Graph
+    + save_graph(filepath: str): void
+    + load_graph(filepath: str): void
+    + get_network_stats(): dict
+}
+
+class BasicAnalyzer {
+    - G: Graph
+    + compute_centralities(): dict
+    + compute_density(): float
+    + detect_communities(): list
+    + plot_largest_community(communities: list): void
+    + export_communities_to_json(communities: list, filename: str): void
+    + export_centralities_to_json(centralities: dict, filename: str): void
+    + summarize(): dict
+}
+
+class DeepAnalyzer {
+    - G: Graph
+    + classify_captures(): void
+    + compare_platforms(): void
+    + analyze(): dict
+}
+
+DatasetCreator --> DataSimulator
+DatasetCreator --> DatasetValidator
+DatasetValidator --> NetworkBuilder
+NetworkBuilder --> BasicAnalyzer
+BasicAnalyzer --> DeepAnalyzer
+
+@enduml

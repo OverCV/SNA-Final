@@ -5,9 +5,9 @@ from core.network_builder import NetworkBuilder
 from core.data_simulator import DataSimulator
 from core.basic_analyzer import BasicAnalyzer
 from core.deep_analyzer import DeepAnalyzer
-from core.validator import DatasetValidator
-from core.visualizer import plot_network
-from core.visualizer import plot_network
+
+from utils.validator import DatasetValidator
+from utils.visualizer import plot_network
 
 if __name__ == '__main__':
     FB_PATH = 'data/facebook.sqlite'
@@ -18,10 +18,9 @@ if __name__ == '__main__':
     GRAPH_CACHE_PATH = 'graph.pkl'
 
     USE_SAMPLE = True
-    SAMPLE_FRACTION = 0.005  # Valor entre 0 y 1 #
+    SAMPLE_FRACTION = 0.05  # Valor entre 0 y 1 #
 
     # 1. Revisión del Artículo y el Dataset.
-
     creator = DatasetCreator(FB_PATH, TS_PATH, TWITTER_PATH, DATASET_PATH)
     dataset = creator.load_or_create_dataset(
         use_sample=USE_SAMPLE,
@@ -36,6 +35,9 @@ if __name__ == '__main__':
     # 3. Validar dataset
     validator = DatasetValidator(dataset)
     validator.run_all_validations()
+    # 3. Dataset de Capturas Simuladas (ejemplo)
+    simulator = DataSimulator()
+    dataset = simulator.simulate_data(dataset)
 
     # 4. Construcción de la Red
     builder = NetworkBuilder(dataset, ts_base_path=TS_PATH, fb_db_path=FB_PATH)
@@ -55,13 +57,6 @@ if __name__ == '__main__':
     # Graficar directamente el subgrafo reducido
     plot_network(builder.G)
 
-
- 
-
-    # 3. Dataset de Capturas Simuladas (ejemplo)
-    simulator = DataSimulator()
-    dataset = simulator.simulate_data(dataset)
-
     # 5. Análisis Básico de Métricas de Red
     analyzer = BasicAnalyzer(builder.G)
     basic_metrics = analyzer.summarize()
@@ -70,6 +65,6 @@ if __name__ == '__main__':
 
     # 6. Análisis Profundo de Métricas de Redes
     deep_analyzer = DeepAnalyzer(builder.G)
-    deep_metrics = deep_analyzer.analyze()
+    deep_metrics = deep_analyzer.analyze(dataset)
     print('\nAnálisis Profundo:')
     print(deep_metrics)

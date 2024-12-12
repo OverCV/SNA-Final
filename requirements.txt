@@ -3,3 +3,5 @@ networkx
 matplotlib
 seaborn
 plotly
+scipy
+scikit-learn
