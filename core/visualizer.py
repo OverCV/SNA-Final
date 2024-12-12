@@ -3,7 +3,9 @@ import networkx as nx
 
 
 def plot_network(G, fraction=0.005):
-
+    """
+    Utilizacion del 0.5% de las aristas para graficar el subgrafo, ya que el grafo completo es muy grande.
+    """
 
     # Obtener todas las aristas
     edges = list(G.edges())
